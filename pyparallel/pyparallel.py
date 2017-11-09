@@ -5,6 +5,7 @@
     :license: see LICENSE for details.
 """
 import os
+from multiprocessing import Process
 
 import requests
 
@@ -81,14 +82,19 @@ class Downloader:
             part.file = self.file_descriptor
 
     def start_download(self):
+        processes = []
         for part in self.parts:
-            part.download()
+            p = Process(target=Part.download, args=(part,))
+            processes.append(p)
+            p.start()
+        for process in processes:
+            process.join()
 
 
 if __name__ == '__main__':
     downloader = Downloader(
         url='https://upload.wikimedia.org/wikipedia/commons/f/ff/Pizigani_1367_Chart_10MB.jpg',
         conns=4,
-        filename='testfile'
+        filename='chart.jpg'
     )
     downloader.start_download()
