@@ -8,6 +8,7 @@ import os
 from multiprocessing import Process
 
 import requests
+from requests.exceptions import HTTPError
 
 
 class Part:
@@ -19,6 +20,8 @@ class Part:
     file = None
 
     def download(self):
+        """Initiate download of this part
+        """
         download = Download()
         return download(part=self)
 
@@ -26,8 +29,11 @@ class Part:
 class Download:
 
     def __call__(self, part, *args, **kwargs):
-        session = requests.Session()
-        buffer = []
+        """Download given part and write to the file
+        at the right position
+
+        :param part: Part instance
+        """
         response = requests.get(
             url=part.url,
             headers={
@@ -37,32 +43,37 @@ class Download:
                 )
             }
         )
-        data = response.content
+        try:
+            response.raise_for_status()
+        except HTTPError:
+            raise
         part.file.seek(part.offset + part.dlsize)
-        part.file.write(data)
+        part.file.write(response.content)
         part.file.seek(0)
+        part.file.close()
 
 
 
 class Downloader:
 
-    file = None
-    size = 0
-    parts = []
-    start = 0
-    end = 0
-    status = ''
-
     def __init__(self, url, conns, filename):
         self.url = url
         self.conns = conns
         self.filename = filename
-
+        self.size = 0
+        self.file_descriptor = None
+        self.parts = []
         self.divide_and_conquer()
 
     def divide_and_conquer(self):
+        """Analyze the url content size and create parts for later downloading
+        """
         response = requests.head(self.url)
-        # TODO Handle errors
+        try:
+            response.raise_for_status()
+        except HTTPError:
+            raise
+
         self.size = int(response.headers.get('Content-Length'))
         if os.path.exists(self.filename):
             os.remove(self.filename)
@@ -82,13 +93,16 @@ class Downloader:
             part.file = self.file_descriptor
 
     def start_download(self):
+        """Start downloading with each process assigned to tasks
+        """
         processes = []
         for part in self.parts:
             p = Process(target=Part.download, args=(part,))
             processes.append(p)
             p.start()
-        for process in processes:
-            process.join()
+        # Join them
+        map(lambda p: p.join(), processes)
+        self.file_descriptor.close()
 
 
 if __name__ == '__main__':
