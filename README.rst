@@ -20,6 +20,8 @@ PyParallel
 
 Parallel downloader
 
+Python port of https://github.com/t3rm1n4l/godownload
+
 
 * Free software: MIT license
 * Documentation: https://pyparallel.readthedocs.io.
