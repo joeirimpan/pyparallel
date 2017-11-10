@@ -7,6 +7,7 @@
 import os
 from multiprocessing import Process
 
+from tqdm import tqdm
 import requests
 from requests.exceptions import HTTPError
 
@@ -41,17 +42,29 @@ class Download:
                     part.offset,
                     part.offset + (part.size-1)
                 )
-            }
+            },
+            stream=True
         )
         try:
             response.raise_for_status()
         except HTTPError:
             raise
-        part.file.seek(part.offset + part.dlsize)
-        part.file.write(response.content)
-        part.file.seek(0)
-        part.file.close()
 
+        pbar = tqdm(unit='B', total=int(response.headers['Content-Length']))
+        chunk_size = 10 ** 6
+        for chunk in response.iter_content(chunk_size=chunk_size):
+            if not chunk:
+                break
+            part.file.seek(part.offset + part.dlsize)
+            pbar.update(len(chunk))
+            part.file.write(chunk)
+            part.file.flush()
+            part.dlsize += len(chunk)
+            remaining = part.size - part.dlsize
+            if remaining == 0:
+                break
+            elif remaining < chunk_size:
+               chunk_size = remaining
 
 
 class Downloader:
@@ -77,8 +90,8 @@ class Downloader:
         self.size = int(response.headers.get('Content-Length'))
         if os.path.exists(self.filename):
             os.remove(self.filename)
-        self.file_descriptor = open(self.filename, 'w+')
         self.parts = [Part() for _ in range(self.conns)]
+        self.file_descriptor = open(self.filename, 'w+')
 
         size = self.size / self.conns
         for i, part in enumerate(self.parts):
@@ -91,6 +104,7 @@ class Downloader:
                 part.size = size
             part.dlsize = 0
             part.file = self.file_descriptor
+
 
     def start_download(self):
         """Start downloading with each process assigned to tasks
