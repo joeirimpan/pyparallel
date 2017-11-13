@@ -12,7 +12,8 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    # TODO: put package requirements here
+    'requests',
+    'Click'
 ]
 
 setup_requirements = [
@@ -34,6 +35,10 @@ setup(
     packages=find_packages(include=['pyparallel']),
     include_package_data=True,
     install_requires=requirements,
+    entry_points='''
+        [console_scripts]
+        download=manage:cli
+    ''',
     license="MIT license",
     zip_safe=False,
     keywords='pyparallel',
