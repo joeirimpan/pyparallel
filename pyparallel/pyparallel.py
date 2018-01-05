@@ -12,18 +12,19 @@ from requests.exceptions import HTTPError
 
 
 class Part:
-    id = None
-    url = ''
-    offset = 0
-    dlsize = 0
-    size = 0
-    file = None
+
+    def __init__(self, id, url, dlsize, size, filename, offset=0):
+        self.id = id
+        self.url = url
+        self.offset = offset
+        self.dlsize = dlsize
+        self.size = size
+        self.filename = filename
 
     def download(self):
         """Initiate download of this part
         """
-        download = Download()
-        return download(part=self)
+        return Download()(part=self)
 
 
 class Download:
@@ -47,11 +48,10 @@ class Download:
             response.raise_for_status()
         except HTTPError:
             raise
-        part.file.seek(part.offset + part.dlsize)
-        part.file.write(response.content)
-        part.file.seek(0)
-        part.file.close()
 
+        with open(part.filename, 'w+') as fd:
+            fd.seek(part.offset + part.dlsize)
+            fd.write(response.content)
 
 
 class Downloader:
@@ -60,8 +60,6 @@ class Downloader:
         self.url = url
         self.conns = conns
         self.filename = filename
-        self.size = 0
-        self.file_descriptor = None
         self.parts = []
         self.divide_and_conquer()
 
@@ -74,23 +72,24 @@ class Downloader:
         except HTTPError:
             raise
 
-        self.size = int(response.headers.get('Content-Length'))
+        content_length = int(response.headers.get('Content-Length'))
         if os.path.exists(self.filename):
             os.remove(self.filename)
-        self.file_descriptor = open(self.filename, 'w+')
-        self.parts = [Part() for _ in range(self.conns)]
 
-        size = self.size / self.conns
-        for i, part in enumerate(self.parts):
-            part.id = i
-            part.url = self.url
-            part.offset = i * size
-            if i == self.conns - 1:
-                part.size = self.size - size * i
-            else:
-                part.size = size
-            part.dlsize = 0
-            part.file = self.file_descriptor
+        size = content_length / self.conns
+        for index in range(self.conns):
+            if index == self.conns - 1:
+                size = content_length - size * index
+            print "Part %s Size %s" % (index, size)
+            self.parts.append(
+                Part(**{
+                    'id': index,
+                    'url': self.url,
+                    'size': size,
+                    'dlsize': 0,
+                    'filename': self.filename
+                })
+            )
 
     def start_download(self):
         """Start downloading with each process assigned to tasks
@@ -102,7 +101,6 @@ class Downloader:
             p.start()
         # Join them
         map(lambda p: p.join(), processes)
-        self.file_descriptor.close()
 
 
 if __name__ == '__main__':
