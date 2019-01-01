@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
     pyparallel.py
-    :copyright: (c) 2017 by Joe Paul.
+    :copyright: (c) 2019 by Joe Paul.
     :license: see LICENSE for details.
 """
 import os
