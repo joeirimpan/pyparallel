@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import click
 
-from pyparallel.pyparallel import Downloader
+from pyparallel import Downloader
 
 
 @click.command()

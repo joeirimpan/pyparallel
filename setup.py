@@ -26,7 +26,7 @@ test_requirements = [
 
 setup(
     name='split-downloader',
-    version='0.2.0',
+    version='0.2.1',
     description="Parallel downloader",
     long_description=readme + '\n\n' + history,
     author="Joe Paul",
@@ -37,7 +37,7 @@ setup(
     install_requires=requirements,
     entry_points='''
         [console_scripts]
-        download=manage:cli
+        download=pyparallel:cli
     ''',
     license="MIT license",
     zip_safe=False,

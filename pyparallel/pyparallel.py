@@ -126,15 +126,3 @@ class Downloader:
         q.put('kill')
         pool.close()
         pool.join()
-
-
-if __name__ == '__main__':
-    start_time = time.time()
-    downloader = Downloader(
-        url='https://upload.wikimedia.org/wikipedia/commons/f/ff/Pizigani_1367_Chart_10MB.jpg',  # noqa
-        conns=10,
-        filename='chart.jpg'
-    )
-    downloader.start()
-    end_time = time.time()
-    print "Time taken: ", (end_time - start_time)
