@@ -8,3 +8,4 @@ __version__ = '0.2.0'
 
 
 from .pyparallel import Downloader  # noqa
+from .cli import cli  # noqa

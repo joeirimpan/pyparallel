@@ -37,7 +37,7 @@ setup(
     install_requires=requirements,
     entry_points='''
         [console_scripts]
-        download=manage:cli
+        download=pyparallel:cli
     ''',
     license="MIT license",
     zip_safe=False,
