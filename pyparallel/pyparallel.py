@@ -5,7 +5,8 @@
     :license: see LICENSE for details.
 """
 import os
-from multiprocessing import Process
+import time
+import multiprocessing as mp
 
 import requests
 from requests.exceptions import HTTPError
@@ -13,45 +14,54 @@ from requests.exceptions import HTTPError
 
 class Part:
 
-    def __init__(self, id, url, dlsize, size, filename, offset=0):
+    def __init__(self, id, url, size, offset, session):
         self.id = id
         self.url = url
         self.offset = offset
-        self.dlsize = dlsize
         self.size = size
-        self.filename = filename
-
-    def download(self):
-        """Initiate download of this part
-        """
-        return Download()(part=self)
+        self.session = session
 
 
-class Download:
+def producer(part, q):
+    """Download given part and write to the file
+    at the right position
 
-    def __call__(self, part, *args, **kwargs):
-        """Download given part and write to the file
-        at the right position
+    :param part: Part instance
+    """
+    response = part.session.get(
+        url=part.url,
+        headers={
+            'Range': 'bytes=%d-%d' % (
+                part.offset,
+                part.offset + (part.size-1)
+            )
+        },
+        stream=True
+    )
 
-        :param part: Part instance
-        """
-        response = requests.get(
-            url=part.url,
-            headers={
-                'Range': 'bytes=%d-%d' % (
-                    part.offset,
-                    part.offset + (part.size-1)
-                )
-            }
-        )
-        try:
-            response.raise_for_status()
-        except HTTPError:
-            raise
+    try:
+        response.raise_for_status()
+    except HTTPError:
+        raise
 
-        with open(part.filename, 'w+') as fd:
-            fd.seek(part.offset + part.dlsize)
-            fd.write(response.content)
+    # Push data into queue
+    q.put((part.id, response.content))
+
+
+def consumer(q, name):
+    data = []
+
+    # Pull data from queue
+    while 1:
+        m = q.get()
+        if m == 'kill':
+            break
+        data.append(m)
+
+    # Sort based on part id and write into file
+    with open(name, 'ab') as f:
+        for k, v in sorted(dict(data).iteritems()):
+            f.write(v)
 
 
 class Downloader:
@@ -61,9 +71,8 @@ class Downloader:
         self.conns = conns
         self.filename = filename
         self.parts = []
-        self.divide_and_conquer()
 
-    def divide_and_conquer(self):
+    def download(self):
         """Analyze the url content size and create parts for later downloading
         """
         response = requests.head(self.url)
@@ -76,37 +85,60 @@ class Downloader:
         if os.path.exists(self.filename):
             os.remove(self.filename)
 
+        # Init a process manager
+        manager = mp.Manager()
+        q = manager.Queue()
+        pool = mp.Pool(mp.cpu_count() + 2)
+
+        # File writer consumer which listens to queue
+        pool.apply_async(consumer, (q, self.filename))
+
+        session = requests.Session()
+
+        print "total_length: ", content_length
         size = content_length / self.conns
+        offset = 0
+        jobs = []
         for index in range(self.conns):
+            old_size = size
             if index == self.conns - 1:
                 size = content_length - size * index
-            print "Part %s Size %s" % (index, size)
-            self.parts.append(
-                Part(**{
-                    'id': index,
-                    'url': self.url,
-                    'size': size,
-                    'dlsize': 0,
-                    'filename': self.filename
-                })
-            )
 
-    def start_download(self):
-        """Start downloading with each process assigned to tasks
-        """
-        processes = []
-        for part in self.parts:
-            p = Process(target=Part.download, args=(part,))
-            processes.append(p)
-            p.start()
-        # Join them
-        map(lambda p: p.join(), processes)
+            if index == 0:
+                offset = 0
+            elif index == self.conns - 1:
+                offset += old_size
+            else:
+                offset += size
+
+            part = Part(**{
+                'id': index,
+                'url': self.url,
+                'size': size,
+                'offset': offset,
+                'session': session,
+            })
+
+            job = pool.apply_async(producer, (part, q))
+            jobs.append(job)
+
+        # Collect all job results
+        for job in jobs:
+            job.get()
+
+        # Kill the consumer
+        q.put('kill')
+        pool.close()
+        pool.join()
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     downloader = Downloader(
-        url='https://upload.wikimedia.org/wikipedia/commons/f/ff/Pizigani_1367_Chart_10MB.jpg',
-        conns=4,
+        url='https://upload.wikimedia.org/wikipedia/commons/f/ff/Pizigani_1367_Chart_10MB.jpg',  # noqa
+        conns=3,
         filename='chart.jpg'
     )
-    downloader.start_download()
+    downloader.download()
+    end_time = time.time()
+    print "Time taken: ", (end_time - start_time)
