@@ -12,23 +12,26 @@ import requests
 from requests.exceptions import HTTPError
 
 
-class Part:
+session = requests.Session()
+session.stream = True
 
-    def __init__(self, id, url, size, offset, session):
-        self.id = id
+
+class Part:
+    __slots__ = ['url', 'offset', 'size']
+
+    def __init__(self, url, size, offset):
         self.url = url
         self.offset = offset
         self.size = size
-        self.session = session
 
 
 def producer(part, q):
-    """Download given part and write to the file
-    at the right position
+    """Download given part and push to consumer queue
 
     :param part: Part instance
+    :param q: Consumer queue
     """
-    response = part.session.get(
+    response = session.get(
         url=part.url,
         headers={
             'Range': 'bytes=%d-%d' % (
@@ -36,7 +39,6 @@ def producer(part, q):
                 part.offset + (part.size-1)
             )
         },
-        stream=True
     )
 
     try:
@@ -45,23 +47,30 @@ def producer(part, q):
         raise
 
     # Push data into queue
-    q.put((part.id, response.content))
+    q.put((part.offset, response.content))
 
 
 def consumer(q, name):
-    data = []
+    """Listen to consumer queue and write file using offset
 
-    # Pull data from queue
+    :param q: Consumer queue
+    :param name: file name
+    """
+    f = open(name, 'w+b')
+
     while 1:
         m = q.get()
         if m == 'kill':
             break
-        data.append(m)
 
-    # Sort based on part id and write into file
-    with open(name, 'ab') as f:
-        for k, v in sorted(dict(data).iteritems()):
-            f.write(v)
+        # Unpack tuple
+        offset, content = m
+
+        f.seek(offset)
+        f.write(content)
+        f.flush()
+
+    f.close()
 
 
 class Downloader:
@@ -70,7 +79,6 @@ class Downloader:
         self.url = url
         self.conns = conns
         self.filename = filename
-        self.parts = []
 
     def start(self):
         """Analyze the url content size and create parts for later downloading
@@ -93,8 +101,6 @@ class Downloader:
         # File writer consumer which listens to queue
         pool.apply_async(consumer, (q, self.filename))
 
-        session = requests.Session()
-
         size = content_length / self.conns
         offset = 0
         jobs = []
@@ -104,11 +110,9 @@ class Downloader:
                 size = content_length - size * index
 
             part = Part(**{
-                'id': index,
                 'url': self.url,
                 'size': size,
                 'offset': offset,
-                'session': session,
             })
 
             job = pool.apply_async(producer, (part, q))
