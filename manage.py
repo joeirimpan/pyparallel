@@ -15,4 +15,4 @@ def cli(url, conns, filename):
         conns=int(conns),
         filename=filename
     )
-    downloader.start_download()
+    downloader.start()

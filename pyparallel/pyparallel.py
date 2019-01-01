@@ -72,7 +72,7 @@ class Downloader:
         self.filename = filename
         self.parts = []
 
-    def download(self):
+    def start(self):
         """Analyze the url content size and create parts for later downloading
         """
         response = requests.head(self.url)
@@ -95,21 +95,13 @@ class Downloader:
 
         session = requests.Session()
 
-        print "total_length: ", content_length
         size = content_length / self.conns
         offset = 0
         jobs = []
         for index in range(self.conns):
-            old_size = size
+            offset = index * size
             if index == self.conns - 1:
                 size = content_length - size * index
-
-            if index == 0:
-                offset = 0
-            elif index == self.conns - 1:
-                offset += old_size
-            else:
-                offset += size
 
             part = Part(**{
                 'id': index,
@@ -136,9 +128,9 @@ if __name__ == '__main__':
     start_time = time.time()
     downloader = Downloader(
         url='https://upload.wikimedia.org/wikipedia/commons/f/ff/Pizigani_1367_Chart_10MB.jpg',  # noqa
-        conns=3,
+        conns=10,
         filename='chart.jpg'
     )
-    downloader.download()
+    downloader.start()
     end_time = time.time()
     print "Time taken: ", (end_time - start_time)
