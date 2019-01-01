@@ -5,3 +5,6 @@
 __author__ = """Joe Paul"""
 __email__ = 'joeirimpan@gmail.com'
 __version__ = '0.1.0'
+
+
+from .pyparallel import Downloader  # noqa

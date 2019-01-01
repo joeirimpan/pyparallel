@@ -1,22 +1,10 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os.path
 
-"""Tests for `pyparallel` package."""
+class TestDownloader:
 
+    def test_downloader(self, downloder):
+        downloder.start()
 
-import unittest
-
-from pyparallel import pyparallel
-
-
-class TestPyparallel(unittest.TestCase):
-    """Tests for `pyparallel` package."""
-
-    def setUp(self):
-        """Set up test fixtures, if any."""
-
-    def tearDown(self):
-        """Tear down test fixtures, if any."""
-
-    def test_000_something(self):
-        """Test something."""
+        # Check if the file exits
+        assert os.path.exists('chart.jpg') is True

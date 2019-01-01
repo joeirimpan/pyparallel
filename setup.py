@@ -25,7 +25,7 @@ test_requirements = [
 ]
 
 setup(
-    name='pyparallel',
+    name='split-downloader',
     version='0.1.0',
     description="Parallel downloader",
     long_description=readme + '\n\n' + history,
