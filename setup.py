@@ -5,11 +5,8 @@
 
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
-
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
 
 requirements = [
     'requests',
@@ -17,18 +14,18 @@ requirements = [
 ]
 
 setup_requirements = [
-    # TODO(joeirimpan): put setup requirements (distutils extensions, etc.) here
+    'pytest-runner'
 ]
 
 test_requirements = [
-    # TODO: put package test requirements here
+    'pytest'
 ]
 
 setup(
     name='split-downloader',
     version='0.2.1',
     description="Parallel downloader",
-    long_description=readme + '\n\n' + history,
+    long_description=readme,
     author="Joe Paul",
     author_email='joeirimpan@gmail.com',
     url='https://github.com/joeirimpan/pyparallel',
@@ -57,5 +54,6 @@ setup(
     ],
     test_suite='tests',
     tests_require=test_requirements,
+    long_description_content_type='text/markdown',
     setup_requires=setup_requirements,
 )
